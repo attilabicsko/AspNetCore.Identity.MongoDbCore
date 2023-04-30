@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Identity.Core;
 using MongoDbGenericRepository;
+using MongoDbGenericRepository.Abstractions;
 
 namespace AspNetCore.Identity.MongoDbCore.Extensions
 {

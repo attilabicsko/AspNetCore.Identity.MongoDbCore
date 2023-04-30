@@ -16,6 +16,7 @@ using AspNetCore.Identity.MongoDbCore.Infrastructure;
 using Microsoft.AspNetCore.Identity;
 using System.ComponentModel;
 using MongoDB.Bson;
+using MongoDbGenericRepository.Abstractions;
 
 namespace AspNetCore.Identity.MongoDbCore
 {
@@ -133,23 +134,23 @@ namespace AspNetCore.Identity.MongoDbCore
         private TContext Context { get; }
 
         private readonly object _mongoRepositoryInitializationLock = new object();
-        private IMongoRepository _mongoRepository;
-        private IMongoRepository MongoRepository
+        private IMongoIdentityRepository _mongoIdentityRepository;
+        private IMongoIdentityRepository MongoIdentityRepository
         {
             get
             {
                 // double checked locking to prevent race to initialize the repository in multithreaded environment.
-                if (_mongoRepository == null)
+                if (_mongoIdentityRepository == null)
                 {
                     lock (_mongoRepositoryInitializationLock)
                     {
-                        if (_mongoRepository == null)
+                        if (_mongoIdentityRepository == null)
                         {
-                            _mongoRepository = new MongoRepository(Context);
+                            _mongoIdentityRepository = new MongoIdentityRepository(Context);
                         }
                     }
                 }
-                return _mongoRepository;
+                return _mongoIdentityRepository;
             }
         }
 
@@ -207,7 +208,7 @@ namespace AspNetCore.Identity.MongoDbCore
             }
             var oldStamp = user.ConcurrencyStamp;
             user.ConcurrencyStamp = Guid.NewGuid().ToString();
-            var collection = MongoRepository.Context.GetCollection<TUser>();
+            var collection = MongoIdentityRepository.Context.GetCollection<TUser>();
             var updateRes = await collection.ReplaceOneAsync(x => x.Id.Equals(user.Id)
                                                                && x.ConcurrencyStamp.Equals(oldStamp),
                                                              user);
@@ -263,7 +264,7 @@ namespace AspNetCore.Identity.MongoDbCore
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
             var id = ConvertIdFromString(userId);
-            return MongoRepository.GetByIdAsync<TUser, TKey>(id);
+            return MongoIdentityRepository.GetByIdAsync<TUser, TKey>(id);
         }
 
         /// <summary>
@@ -288,7 +289,7 @@ namespace AspNetCore.Identity.MongoDbCore
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-            return MongoRepository.GetOneAsync<TUser, TKey>(u => u.NormalizedUserName == normalizedUserName);
+            return MongoIdentityRepository.GetOneAsync<TUser, TKey>(u => u.NormalizedUserName == normalizedUserName);
         }
 
         /// <summary>
@@ -307,7 +308,7 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <returns>The role if it exists.</returns>
         protected override Task<TRole> FindRoleAsync(string normalizedRoleName, CancellationToken cancellationToken)
         {
-            return MongoRepository.GetOneAsync<TRole, TKey>(u => u.NormalizedName == normalizedRoleName);
+            return MongoIdentityRepository.GetOneAsync<TRole, TKey>(u => u.NormalizedName == normalizedRoleName);
         }
 
         /// <summary>
@@ -319,7 +320,7 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <returns>The user role if it exists.</returns>
         protected override Task<TUserRole> FindUserRoleAsync(TKey userId, TKey roleId, CancellationToken cancellationToken)
         {
-            var userRole = MongoRepository.ProjectOne<TUser, TUserRole, TKey>(
+            var userRole = MongoIdentityRepository.ProjectOne<TUser, TUserRole, TKey>(
                                         x => x.Id.Equals(userId) && x.Roles.Any(r => r.Equals(roleId)),
                                         x => new TUserRole
                                         {
@@ -341,7 +342,7 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <returns>The user if it exists.</returns>
         protected override Task<TUser> FindUserAsync(TKey userId, CancellationToken cancellationToken)
         {
-            return MongoRepository.GetOneAsync<TUser, TKey>(u => u.Id.Equals(userId));
+            return MongoIdentityRepository.GetOneAsync<TUser, TKey>(u => u.Id.Equals(userId));
         }
 
         /// <summary>
@@ -354,7 +355,7 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <returns>The user login if it exists.</returns>
         protected override Task<TUserLogin> FindUserLoginAsync(TKey userId, string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
-            var user = MongoRepository.GetOne<TUser, TKey>(x => x.Id.Equals(userId) && x.Logins.Any(e => e.LoginProvider == loginProvider && e.ProviderKey == providerKey));
+            var user = MongoIdentityRepository.GetOne<TUser, TKey>(x => x.Id.Equals(userId) && x.Logins.Any(e => e.LoginProvider == loginProvider && e.ProviderKey == providerKey));
             if (user != null)
             {
                 return Task.FromResult((TUserLogin)user.GetUserLogin(loginProvider, providerKey));
@@ -371,7 +372,7 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <returns>The user login if it exists.</returns>
         protected override Task<TUserLogin> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
-            var user = MongoRepository.GetOne<TUser, TKey>(x => x.Logins.Any(e => e.LoginProvider == loginProvider && e.ProviderKey == providerKey));
+            var user = MongoIdentityRepository.GetOne<TUser, TKey>(x => x.Logins.Any(e => e.LoginProvider == loginProvider && e.ProviderKey == providerKey));
             if (user != null)
             {
                 return Task.FromResult((TUserLogin)user.GetUserLogin(loginProvider, providerKey));
@@ -398,7 +399,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentException("Value", nameof(normalizedRoleName));
             }
-            var roleEntity = await MongoRepository.GetOneAsync<TRole, TKey>(x => x.NormalizedName == normalizedRoleName);
+            var roleEntity = await MongoIdentityRepository.GetOneAsync<TRole, TKey>(x => x.NormalizedName == normalizedRoleName);
             if (roleEntity == null)
             {
                 throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, Resources.RoleNotFound, normalizedRoleName));
@@ -411,7 +412,7 @@ namespace AspNetCore.Identity.MongoDbCore
 
             if (user.AddRole(roleEntity.Id))
             {
-                MongoRepository.UpdateOne<TUser, TKey, List<TKey>>(user, e => e.Roles, user.Roles);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, List<TKey>>(user, e => e.Roles, user.Roles);
             }
         }
 
@@ -434,11 +435,11 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentException(Resources.ValueCannotBeNullOrEmpty, nameof(normalizedRoleName));
             }
-            var role = MongoRepository.GetOne<TRole, TKey>(x => x.NormalizedName == normalizedRoleName);
+            var role = MongoIdentityRepository.GetOne<TRole, TKey>(x => x.NormalizedName == normalizedRoleName);
 
             if (user.RemoveRole(role.Id))
             {
-                await MongoRepository.UpdateOneAsync<TUser, TKey>(user);
+                await MongoIdentityRepository.UpdateOneAsync<TUser, TKey>(user);
             }
         }
 
@@ -458,7 +459,7 @@ namespace AspNetCore.Identity.MongoDbCore
             }
             if (user.Roles.Any())
             {
-                return await MongoRepository.ProjectManyAsync<TRole, string, TKey>(x => user.Roles.Contains(x.Id), x => x.Name);
+                return await MongoIdentityRepository.ProjectManyAsync<TRole, string, TKey>(x => user.Roles.Contains(x.Id), x => x.Name);
             }
             return new List<string>();
         }
@@ -483,7 +484,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentException(Resources.ValueCannotBeNullOrEmpty, nameof(normalizedRoleName));
             }
-            var role = await MongoRepository.GetOneAsync<TRole, TKey>(e => e.NormalizedName.Equals(normalizedRoleName));
+            var role = await MongoIdentityRepository.GetOneAsync<TRole, TKey>(e => e.NormalizedName.Equals(normalizedRoleName));
             if (role != null)
             {
                 return user.Roles.Any(r => r.Equals(role.Id));
@@ -537,7 +538,7 @@ namespace AspNetCore.Identity.MongoDbCore
             }
             if (addedSome)
             {
-                var success = MongoRepository.UpdateOne<TUser, TKey, List<MongoClaim>>(user, p => p.Claims, user.Claims);
+                var success = MongoIdentityRepository.UpdateOne<TUser, TKey, List<MongoClaim>>(user, p => p.Claims, user.Claims);
                 if (!success)
                 {
                     throw new Exception($"Failed to add claims to user {user.Id.ToString()}");
@@ -572,7 +573,7 @@ namespace AspNetCore.Identity.MongoDbCore
 
             if (user.ReplaceClaim(claim, newClaim))
             {
-                await MongoRepository.UpdateOneAsync<TUser, TKey, List<MongoClaim>>(user, e => e.Claims, user.Claims);
+                await MongoIdentityRepository.UpdateOneAsync<TUser, TKey, List<MongoClaim>>(user, e => e.Claims, user.Claims);
             }
         }
 
@@ -596,7 +597,7 @@ namespace AspNetCore.Identity.MongoDbCore
             }
             if (user.RemoveClaims(claims))
             {
-                await MongoRepository.UpdateOneAsync<TUser, TKey, List<MongoClaim>>(user, e => e.Claims, user.Claims);
+                await MongoIdentityRepository.UpdateOneAsync<TUser, TKey, List<MongoClaim>>(user, e => e.Claims, user.Claims);
             }
         }
 
@@ -625,7 +626,7 @@ namespace AspNetCore.Identity.MongoDbCore
 
             if (user.AddLogin(login))
             {
-                MongoRepository.UpdateOne<TUser, TKey, List<UserLoginInfo>>(user, e => e.Logins, user.Logins);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, List<UserLoginInfo>>(user, e => e.Logins, user.Logins);
             }
 
             return Task.FromResult(false);
@@ -712,7 +713,7 @@ namespace AspNetCore.Identity.MongoDbCore
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-            return MongoRepository.GetOneAsync<TUser, TKey>(u => u.NormalizedEmail == normalizedEmail);
+            return MongoIdentityRepository.GetOneAsync<TUser, TKey>(u => u.NormalizedEmail == normalizedEmail);
         }
 
         /// <summary>
@@ -759,7 +760,7 @@ namespace AspNetCore.Identity.MongoDbCore
 
             if (role != null)
             {
-                return await MongoRepository.GetAllAsync<TUser, TKey>(e => e.Roles.Contains(role.Id));
+                return await MongoIdentityRepository.GetAllAsync<TUser, TKey>(e => e.Roles.Contains(role.Id));
             }
             return new List<TUser>();
         }
@@ -786,12 +787,12 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <returns></returns>
         protected override Task AddUserTokenAsync(TUserToken token)
         {
-            var user = MongoRepository.GetById<TUser, TKey>(token.UserId);
+            var user = MongoIdentityRepository.GetById<TUser, TKey>(token.UserId);
             if (user != null)
             {
                 if (user.AddUserToken(token))
                 {
-                    MongoRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
+                    MongoIdentityRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
                 }
             }
             return Task.CompletedTask;
@@ -804,12 +805,12 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <returns></returns>
         protected override Task RemoveUserTokenAsync(TUserToken token)
         {
-            var user = MongoRepository.GetById<TUser, TKey>(token.UserId);
+            var user = MongoIdentityRepository.GetById<TUser, TKey>(token.UserId);
             if (user != null)
             {
                 if (user.RemoveUserToken(token))
                 {
-                    MongoRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
+                    MongoIdentityRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
                 }
             }
             return Task.CompletedTask;
@@ -838,7 +839,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.UserName != userName)
             {
                 user.UserName = userName;
-                MongoRepository.UpdateOne<TUser, TKey, string>(user, e => e.UserName, user.UserName);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, string>(user, e => e.UserName, user.UserName);
             }
             return Task.CompletedTask;
         }
@@ -862,7 +863,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.NormalizedUserName != normalizedName)
             {
                 user.NormalizedUserName = normalizedName;
-                MongoRepository.UpdateOne<TUser, TKey, string>(user, e => e.NormalizedUserName, user.NormalizedUserName);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, string>(user, e => e.NormalizedUserName, user.NormalizedUserName);
             }
             return Task.CompletedTask;
         }
@@ -886,7 +887,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.PasswordHash != passwordHash)
             {
                 user.PasswordHash = passwordHash;
-                MongoRepository.UpdateOne<TUser, TKey, string>(user, e => e.PasswordHash, user.PasswordHash);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, string>(user, e => e.PasswordHash, user.PasswordHash);
             }
             return Task.CompletedTask;
         }
@@ -909,7 +910,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.EmailConfirmed != confirmed)
             {
                 user.EmailConfirmed = confirmed;
-                MongoRepository.UpdateOne<TUser, TKey, bool>(user, e => e.EmailConfirmed, user.EmailConfirmed);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, bool>(user, e => e.EmailConfirmed, user.EmailConfirmed);
             }
             return Task.CompletedTask;
         }
@@ -933,7 +934,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.Email != email)
             {
                 user.Email = email;
-                MongoRepository.UpdateOne<TUser, TKey, string>(user, e => e.Email, user.Email);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, string>(user, e => e.Email, user.Email);
             }
             return Task.CompletedTask;
         }
@@ -957,7 +958,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.NormalizedEmail != normalizedEmail)
             {
                 user.NormalizedEmail = normalizedEmail;
-                MongoRepository.UpdateOne<TUser, TKey, string>(user, e => e.NormalizedEmail, user.NormalizedEmail);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, string>(user, e => e.NormalizedEmail, user.NormalizedEmail);
             }
             user.NormalizedEmail = normalizedEmail;
             return Task.CompletedTask;
@@ -982,7 +983,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.LockoutEnd != lockoutEnd)
             {
                 user.LockoutEnd = lockoutEnd;
-                MongoRepository.UpdateOne<TUser, TKey, DateTimeOffset?>(user, e => e.LockoutEnd, user.LockoutEnd);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, DateTimeOffset?>(user, e => e.LockoutEnd, user.LockoutEnd);
             }
             return Task.CompletedTask;
         }
@@ -1002,7 +1003,7 @@ namespace AspNetCore.Identity.MongoDbCore
                 throw new ArgumentNullException(nameof(user));
             }
             user.AccessFailedCount++;
-            MongoRepository.UpdateOne<TUser, TKey, int>(user, e => e.AccessFailedCount, user.AccessFailedCount);
+            MongoIdentityRepository.UpdateOne<TUser, TKey, int>(user, e => e.AccessFailedCount, user.AccessFailedCount);
             return Task.FromResult(user.AccessFailedCount);
         }
 
@@ -1025,7 +1026,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.AccessFailedCount != 0)
             {
                 user.AccessFailedCount = 0;
-                MongoRepository.UpdateOne<TUser, TKey, int>(user, e => e.AccessFailedCount, user.AccessFailedCount);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, int>(user, e => e.AccessFailedCount, user.AccessFailedCount);
             }
             return Task.CompletedTask;
         }
@@ -1049,7 +1050,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.LockoutEnabled != enabled)
             {
                 user.LockoutEnabled = enabled;
-                MongoRepository.UpdateOne<TUser, TKey, bool>(user, e => e.LockoutEnabled, user.LockoutEnabled);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, bool>(user, e => e.LockoutEnabled, user.LockoutEnabled);
             }
             return Task.CompletedTask;
         }
@@ -1072,7 +1073,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.PhoneNumber != phoneNumber)
             {
                 user.PhoneNumber = phoneNumber;
-                MongoRepository.UpdateOne<TUser, TKey, string>(user, e => e.PhoneNumber, user.PhoneNumber);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, string>(user, e => e.PhoneNumber, user.PhoneNumber);
             }
             return Task.CompletedTask;
         }
@@ -1096,7 +1097,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.PhoneNumberConfirmed != confirmed)
             {
                 user.PhoneNumberConfirmed = confirmed;
-                MongoRepository.UpdateOne<TUser, TKey, bool>(user, e => e.PhoneNumberConfirmed, user.PhoneNumberConfirmed);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, bool>(user, e => e.PhoneNumberConfirmed, user.PhoneNumberConfirmed);
             }
             return Task.CompletedTask;
         }
@@ -1125,7 +1126,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.SecurityStamp != stamp)
             {
                 user.SecurityStamp = stamp;
-                MongoRepository.UpdateOne<TUser, TKey, string>(user, e => e.SecurityStamp, user.SecurityStamp);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, string>(user, e => e.SecurityStamp, user.SecurityStamp);
             }
             return Task.CompletedTask;
         }
@@ -1149,7 +1150,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (user.TwoFactorEnabled != enabled)
             {
                 user.TwoFactorEnabled = enabled;
-                MongoRepository.UpdateOne<TUser, TKey, bool>(user, e => e.TwoFactorEnabled, user.TwoFactorEnabled);
+                MongoIdentityRepository.UpdateOne<TUser, TKey, bool>(user, e => e.TwoFactorEnabled, user.TwoFactorEnabled);
             }
             return Task.CompletedTask;
         }
@@ -1178,7 +1179,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 if (user.AddUserToken(CreateUserToken(user, loginProvider, name, value)))
                 {
-                    MongoRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
+                    MongoIdentityRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
                 }
                 //await AddUserTokenAsync(CreateUserToken(user, loginProvider, name, value));
             }
@@ -1186,7 +1187,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 if (user.SetToken(token, value))
                 {
-                    MongoRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
+                    MongoIdentityRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
                 }
             }
         }
@@ -1213,7 +1214,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 if (user.RemoveUserToken(entry))
                 {
-                    MongoRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
+                    MongoIdentityRepository.UpdateOne<TUser, TKey, List<Token>>(user, e => e.Tokens, user.Tokens);
                 }
             }
         }

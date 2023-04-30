@@ -1,11 +1,12 @@
 ﻿using MongoDbGenericRepository;
+using MongoDbGenericRepository.Abstractions;
 
 namespace AspNetCore.Identity.MongoDbCore.Infrastructure
 {
     /// <summary>
     /// The repository used in the MongoDb identity stores.
     /// </summary>
-    public interface IMongoRepository : IBaseMongoRepository
+    public interface IMongoIdentityRepository : IBaseMongoRepository
     {
         /// <summary>
         /// Drops a collections.
@@ -29,22 +30,22 @@ namespace AspNetCore.Identity.MongoDbCore.Infrastructure
     /// <summary>
     /// The repository used in the MongoDb identity stores.
     /// </summary>
-    public class MongoRepository : BaseMongoRepository, IMongoRepository
+    public class MongoIdentityRepository : BaseMongoRepository, IMongoIdentityRepository
     {
         /// <summary>
-        /// The constructor for <see cref="MongoRepository"/> requiring a connection string and a database name.
+        /// The constructor for <see cref="MongoIdentityRepository"/> requiring a connection string and a database name.
         /// </summary>
         /// <param name="connectionString">The connection string.</param>
         /// <param name="databaseName">The database name.</param>
-        public MongoRepository(string connectionString, string databaseName) : base(connectionString, databaseName)
+        public MongoIdentityRepository(string connectionString, string databaseName) : base(connectionString, databaseName)
         {
         }
 
         /// <summary>
-        /// The constructor for <see cref="MongoRepository"/> requiring a <see cref="IMongoDbContext"/>.
+        /// The constructor for <see cref="MongoIdentityRepository"/> requiring a <see cref="IMongoDbContext"/>.
         /// </summary>
         /// <param name="mongoDbContext">A <see cref="IMongoDbContext"/>.</param>
-        public MongoRepository(IMongoDbContext mongoDbContext) : base(mongoDbContext)
+        public MongoIdentityRepository(IMongoDbContext mongoDbContext) : base(mongoDbContext)
         {
         }
 

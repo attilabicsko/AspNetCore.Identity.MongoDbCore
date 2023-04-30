@@ -14,6 +14,7 @@ using AspNetCore.Identity.MongoDbCore.Extensions;
 using AspNetCore.Identity.MongoDbCore.Models;
 using AspNetCore.Identity.MongoDbCore.Infrastructure;
 using Microsoft.AspNetCore.Identity;
+using MongoDbGenericRepository.Abstractions;
 
 namespace AspNetCore.Identity.MongoDbCore
 {
@@ -110,16 +111,16 @@ namespace AspNetCore.Identity.MongoDbCore
         /// </summary>
         private IMongoDbContext Context { get; }
 
-        private IMongoRepository _mongoRepository;
-        private IMongoRepository MongoRepository
+        private IMongoIdentityRepository _mongoIdentityRepository;
+        private IMongoIdentityRepository MongoIdentityRepository
         {
             get
             {
-                if (_mongoRepository == null)
+                if (_mongoIdentityRepository == null)
                 {
-                    _mongoRepository = new MongoRepository(Context);
+                    _mongoIdentityRepository = new MongoIdentityRepository(Context);
                 }
-                return _mongoRepository;
+                return _mongoIdentityRepository;
             }
         }
 
@@ -160,7 +161,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
-            await MongoRepository.AddOneAsync<TRole, TKey>(role);
+            await MongoIdentityRepository.AddOneAsync<TRole, TKey>(role);
             return IdentityResult.Success;
         }
 
@@ -267,7 +268,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (role.Name != roleName)
             {
                 role.Name = roleName;
-                return MongoRepository.UpdateOneAsync<TRole, TKey, string>(role, x => x.Name, role.Name);
+                return MongoIdentityRepository.UpdateOneAsync<TRole, TKey, string>(role, x => x.Name, role.Name);
             }
 
             return Task.CompletedTask;
@@ -313,7 +314,7 @@ namespace AspNetCore.Identity.MongoDbCore
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
             var roleId = ConvertIdFromString(id);
-            return MongoRepository.GetOneAsync<TRole, TKey>(u => u.Id.Equals(roleId));
+            return MongoIdentityRepository.GetOneAsync<TRole, TKey>(u => u.Id.Equals(roleId));
         }
 
         /// <summary>
@@ -326,7 +327,7 @@ namespace AspNetCore.Identity.MongoDbCore
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-            return MongoRepository.GetOneAsync<TRole, TKey>(r => r.NormalizedName == normalizedName);
+            return MongoIdentityRepository.GetOneAsync<TRole, TKey>(r => r.NormalizedName == normalizedName);
         }
 
         /// <summary>
@@ -364,7 +365,7 @@ namespace AspNetCore.Identity.MongoDbCore
             if (role.NormalizedName != normalizedName)
             {
                 role.NormalizedName = normalizedName;
-                return MongoRepository.UpdateOneAsync<TRole, TKey, string>(role, x => x.NormalizedName, role.NormalizedName);
+                return MongoIdentityRepository.UpdateOneAsync<TRole, TKey, string>(role, x => x.NormalizedName, role.NormalizedName);
             }
             return Task.CompletedTask;
         }
@@ -423,7 +424,7 @@ namespace AspNetCore.Identity.MongoDbCore
             }
             if (role.AddClaim(claim))
             {
-                MongoRepository.UpdateOne<TRole, TKey, List<MongoClaim>>(role, e => e.Claims, role.Claims);
+                MongoIdentityRepository.UpdateOne<TRole, TKey, List<MongoClaim>>(role, e => e.Claims, role.Claims);
             }
             return Task.FromResult(false);
         }
@@ -448,7 +449,7 @@ namespace AspNetCore.Identity.MongoDbCore
             }
             if (role.RemoveClaim(claim))
             {
-                await MongoRepository.UpdateOneAsync<TRole, TKey, List<MongoClaim>>(role, e => e.Claims, role.Claims);
+                await MongoIdentityRepository.UpdateOneAsync<TRole, TKey, List<MongoClaim>>(role, e => e.Claims, role.Claims);
             }
         }
 

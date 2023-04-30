@@ -9,6 +9,7 @@ using MongoDbGenericRepository;
 using AspNetCore.Identity.MongoDbCore;
 using AspNetCore.Identity.MongoDbCore.Models;
 using AspNetCore.Identity.MongoDbCore.Infrastructure;
+using MongoDbGenericRepository.Abstractions;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -33,7 +34,7 @@ namespace Microsoft.Extensions.DependencyInjection
             }
 
             builder.Services.TryAddSingleton<IMongoDbContext>(mongoDbContext);
-            builder.Services.TryAddSingleton<IMongoRepository>(new MongoRepository(mongoDbContext));
+            builder.Services.TryAddSingleton<IMongoIdentityRepository>(new MongoIdentityRepository(mongoDbContext));
 
             AddStores(builder.Services, builder.UserType, builder.RoleType, typeof(TContext));
             return builder;
@@ -90,7 +91,7 @@ namespace Microsoft.Extensions.DependencyInjection
             }
 
             builder.Services.TryAddSingleton<IMongoDbContext>(mongoDbContext);
-            builder.Services.TryAddSingleton<IMongoRepository>(new MongoRepository(mongoDbContext));
+            builder.Services.TryAddSingleton<IMongoIdentityRepository>(new MongoIdentityRepository(mongoDbContext));
             builder.Services.TryAddScoped<IUserStore<TUser>>(provider =>
             {
                 return new MongoUserStore<TUser, TRole, IMongoDbContext, TKey>(provider.GetService<IMongoDbContext>());
