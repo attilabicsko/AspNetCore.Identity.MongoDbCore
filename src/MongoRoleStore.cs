@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading;
@@ -30,7 +29,10 @@ namespace AspNetCore.Identity.MongoDbCore
         /// </summary>
         /// <param name="context">The <see cref="IMongoDbContext"/>.</param>
         /// <param name="describer">The <see cref="IdentityErrorDescriber"/>.</param>
-        public MongoRoleStore(IMongoDbContext context, IdentityErrorDescriber describer = null) : base(context, describer) { }
+        public MongoRoleStore(IMongoDbContext context, IdentityErrorDescriber describer = null) : base(context,
+            describer)
+        {
+        }
     }
 
     /// <summary>
@@ -47,7 +49,9 @@ namespace AspNetCore.Identity.MongoDbCore
         /// </summary>
         /// <param name="context">The <see cref="IMongoDbContext"/>.</param>
         /// <param name="describer">The <see cref="IdentityErrorDescriber"/>.</param>
-        public MongoRoleStore(TContext context, IdentityErrorDescriber describer = null) : base(context, describer) { }
+        public MongoRoleStore(TContext context, IdentityErrorDescriber describer = null) : base(context, describer)
+        {
+        }
     }
 
     /// <summary>
@@ -56,7 +60,8 @@ namespace AspNetCore.Identity.MongoDbCore
     /// <typeparam name="TRole">The type of the class representing a role.</typeparam>
     /// <typeparam name="TContext">The type of the data context class used to access the store.</typeparam>
     /// <typeparam name="TKey">The type of the primary key for a role.</typeparam>
-    public class MongoRoleStore<TRole, TContext, TKey> : MongoRoleStore<TRole, TContext, TKey, IdentityUserRole<TKey>, IdentityRoleClaim<TKey>>,
+    public class MongoRoleStore<TRole, TContext, TKey> :
+        MongoRoleStore<TRole, TContext, TKey, IdentityUserRole<TKey>, IdentityRoleClaim<TKey>>,
         IQueryableRoleStore<TRole>,
         IRoleClaimStore<TRole>
         where TRole : MongoIdentityRole<TKey>
@@ -68,7 +73,10 @@ namespace AspNetCore.Identity.MongoDbCore
         /// </summary>
         /// <param name="context">The <see cref="IMongoDbContext"/>.</param>
         /// <param name="describer">The <see cref="IdentityErrorDescriber"/>.</param>
-        public MongoRoleStore(IMongoDbContext context, IdentityErrorDescriber describer = null) : base(context, describer) { }
+        public MongoRoleStore(IMongoDbContext context, IdentityErrorDescriber describer = null) : base(context,
+            describer)
+        {
+        }
     }
 
     /// <summary>
@@ -99,6 +107,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(context));
             }
+
             Context = context;
             ErrorDescriber = describer ?? new IdentityErrorDescriber();
         }
@@ -112,6 +121,7 @@ namespace AspNetCore.Identity.MongoDbCore
         private IMongoDbContext Context { get; }
 
         private IMongoIdentityRepository _mongoIdentityRepository;
+
         private IMongoIdentityRepository MongoIdentityRepository
         {
             get
@@ -120,6 +130,7 @@ namespace AspNetCore.Identity.MongoDbCore
                 {
                     _mongoIdentityRepository = new MongoIdentityRepository(Context);
                 }
+
                 return _mongoIdentityRepository;
             }
         }
@@ -153,7 +164,8 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="role">The role to create in the store.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A <see cref="Task{TResult}"/> that represents the <see cref="IdentityResult"/> of the asynchronous query.</returns>
-        public async virtual Task<IdentityResult> CreateAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task<IdentityResult> CreateAsync(TRole role,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -161,7 +173,8 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
-            await MongoIdentityRepository.AddOneAsync<TRole, TKey>(role);
+
+            await MongoIdentityRepository.AddOneAsync<TRole, TKey>(role, cancellationToken);
             return IdentityResult.Success;
         }
 
@@ -171,7 +184,8 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="role">The role to update in the store.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A <see cref="Task{TResult}"/> that represents the <see cref="IdentityResult"/> of the asynchronous query.</returns>
-        public async virtual Task<IdentityResult> UpdateAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task<IdentityResult> UpdateAsync(TRole role,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -179,16 +193,15 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
+
             var oldStamp = role.ConcurrencyStamp;
             role.ConcurrencyStamp = Guid.NewGuid().ToString();
             var updateRes = await RolesCollection.ReplaceOneAsync(x => x.Id.Equals(role.Id)
-                                                               && x.ConcurrencyStamp.Equals(oldStamp),
-                                                             role);
-            if (updateRes.ModifiedCount == 0)
-            {
-                return IdentityResult.Failed(ErrorDescriber.ConcurrencyFailure());
-            }
-            return IdentityResult.Success;
+                                                                       && x.ConcurrencyStamp.Equals(oldStamp),
+                role, cancellationToken: cancellationToken);
+            return updateRes.ModifiedCount == 0
+                ? IdentityResult.Failed(ErrorDescriber.ConcurrencyFailure())
+                : IdentityResult.Success;
         }
 
         /// <summary>
@@ -197,7 +210,8 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="role">The role to delete from the store.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A <see cref="Task{TResult}"/> that represents the <see cref="IdentityResult"/> of the asynchronous query.</returns>
-        public async virtual Task<IdentityResult> DeleteAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task<IdentityResult> DeleteAsync(TRole role,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -205,15 +219,15 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
+
             var oldStamp = role.ConcurrencyStamp;
             role.ConcurrencyStamp = Guid.NewGuid().ToString();
             var deleteRes = await RolesCollection.DeleteOneAsync(x => x.Id.Equals(role.Id)
-                                                               && x.ConcurrencyStamp.Equals(oldStamp));
-            if (deleteRes.DeletedCount == 0)
-            {
-                return IdentityResult.Failed(ErrorDescriber.ConcurrencyFailure());
-            }
-            return IdentityResult.Success;
+                                                                      && x.ConcurrencyStamp.Equals(oldStamp),
+                cancellationToken: cancellationToken);
+            return deleteRes.DeletedCount == 0
+                ? IdentityResult.Failed(ErrorDescriber.ConcurrencyFailure())
+                : IdentityResult.Success;
         }
 
         /// <summary>
@@ -222,7 +236,8 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="role">The role whose ID should be returned.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A <see cref="Task{TResult}"/> that contains the ID of the role.</returns>
-        public virtual Task<string> GetRoleIdAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task<string> GetRoleIdAsync(TRole role,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -230,7 +245,8 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
-            return Task.FromResult(ConvertIdToString(role.Id));
+
+            return ConvertIdToString(role.Id);
         }
 
         /// <summary>
@@ -239,7 +255,8 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="role">The role whose name should be returned.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A <see cref="Task{TResult}"/> that contains the name of the role.</returns>
-        public virtual Task<string> GetRoleNameAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task<string> GetRoleNameAsync(TRole role,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -247,7 +264,8 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
-            return Task.FromResult(role.Name);
+
+            return role.Name;
         }
 
         /// <summary>
@@ -257,7 +275,8 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="roleName">The name of the role.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-        public virtual Task SetRoleNameAsync(TRole role, string roleName, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task SetRoleNameAsync(TRole role, string roleName,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -265,13 +284,10 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
-            if (role.Name != roleName)
-            {
-                role.Name = roleName;
-                return MongoIdentityRepository.UpdateOneAsync<TRole, TKey, string>(role, x => x.Name, role.Name);
-            }
 
-            return Task.CompletedTask;
+            if (role.Name == roleName) return;
+            role.Name = roleName;
+            await MongoIdentityRepository.UpdateOneAsync<TRole, TKey, string>(role, x => x.Name, role.Name);
         }
 
         /// <summary>
@@ -279,7 +295,7 @@ namespace AspNetCore.Identity.MongoDbCore
         /// </summary>
         /// <param name="id">The id to convert.</param>
         /// <returns>An instance of <typeparamref name="TKey"/> representing the provided <paramref name="id"/>.</returns>
-        public virtual TKey ConvertIdFromString(string id)
+        protected virtual TKey ConvertIdFromString(string id)
         {
             return id.ToTKey<TKey>();
         }
@@ -289,7 +305,7 @@ namespace AspNetCore.Identity.MongoDbCore
         /// </summary>
         /// <param name="id">The id to convert.</param>
         /// <returns>An <see cref="string"/> representation of the provided <paramref name="id"/>.</returns>
-        public virtual string ConvertIdToString(TKey id)
+        protected virtual string ConvertIdToString(TKey id)
         {
             if (id == null)
             {
@@ -300,6 +316,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 return null;
             }
+
             return id.ToString();
         }
 
@@ -309,12 +326,14 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="id">The role ID to look for.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A <see cref="Task{TResult}"/> that result of the look up.</returns>
-        public virtual Task<TRole> FindByIdAsync(string id, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task<TRole> FindByIdAsync(string id,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
             var roleId = ConvertIdFromString(id);
-            return MongoIdentityRepository.GetOneAsync<TRole, TKey>(u => u.Id.Equals(roleId));
+            return await MongoIdentityRepository.GetOneAsync<TRole, TKey>(u => u.Id.Equals(roleId),
+                cancellationToken: cancellationToken);
         }
 
         /// <summary>
@@ -323,11 +342,13 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="normalizedName">The normalized role name to look for.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A <see cref="Task{TResult}"/> that result of the look up.</returns>
-        public virtual Task<TRole> FindByNameAsync(string normalizedName, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task<TRole> FindByNameAsync(string normalizedName,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-            return MongoIdentityRepository.GetOneAsync<TRole, TKey>(r => r.NormalizedName == normalizedName);
+            return await MongoIdentityRepository.GetOneAsync<TRole, TKey>(r => r.NormalizedName == normalizedName,
+                cancellationToken: cancellationToken);
         }
 
         /// <summary>
@@ -336,7 +357,8 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="role">The role whose normalized name should be retrieved.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A <see cref="Task{TResult}"/> that contains the name of the role.</returns>
-        public virtual Task<string> GetNormalizedRoleNameAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task<string> GetNormalizedRoleNameAsync(TRole role,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -344,7 +366,7 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
-            return Task.FromResult(role.NormalizedName);
+            return role.NormalizedName;
         }
 
         /// <summary>
@@ -354,7 +376,8 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="normalizedName">The normalized name to set</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-        public virtual Task SetNormalizedRoleNameAsync(TRole role, string normalizedName, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task SetNormalizedRoleNameAsync(TRole role, string normalizedName,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -362,18 +385,19 @@ namespace AspNetCore.Identity.MongoDbCore
             {
                 throw new ArgumentNullException(nameof(role));
             }
-            if (role.NormalizedName != normalizedName)
-            {
-                role.NormalizedName = normalizedName;
-                return MongoIdentityRepository.UpdateOneAsync<TRole, TKey, string>(role, x => x.NormalizedName, role.NormalizedName);
-            }
-            return Task.CompletedTask;
+
+            if (role.NormalizedName == normalizedName)
+                return;
+
+            role.NormalizedName = normalizedName;
+            await MongoIdentityRepository.UpdateOneAsync<TRole, TKey, string>(role, x => x.NormalizedName,
+                role.NormalizedName);
         }
 
         /// <summary>
         /// Throws if this class has been disposed.
         /// </summary>
-        protected void ThrowIfDisposed()
+        private void ThrowIfDisposed()
         {
             if (_disposed)
             {
@@ -387,20 +411,21 @@ namespace AspNetCore.Identity.MongoDbCore
         public void Dispose() => _disposed = true;
 
 #pragma warning disable CS1998 // Cette méthode async n'a pas d'opérateur 'await' et elle s'exécutera de façon synchrone
-                              /// <summary>
-                              /// Get the claims associated with the specified <paramref name="role"/> as an asynchronous operation.
-                              /// </summary>
-                              /// <param name="role">The role whose claims should be retrieved.</param>
-                              /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
-                              /// <returns>A <see cref="Task{TResult}"/> that contains the claims granted to a role.</returns>
-        public async virtual Task<IList<Claim>> GetClaimsAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
-#pragma warning restore CS1998 // Cette méthode async n'a pas d'opérateur 'await' et elle s'exécutera de façon synchrone
+        /// <summary>
+        /// Get the claims associated with the specified <paramref name="role"/> as an asynchronous operation.
+        /// </summary>
+        /// <param name="role">The role whose claims should be retrieved.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>A <see cref="Task{TResult}"/> that contains the claims granted to a role.</returns>
+        public virtual async Task<IList<Claim>> GetClaimsAsync(TRole role,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             ThrowIfDisposed();
             if (role == null)
             {
                 throw new ArgumentNullException(nameof(role));
             }
+
             return role.Claims.Select(e => e.ToClaim()).ToList();
         }
 
@@ -411,22 +436,25 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="claim">The claim to add to the role.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-        public virtual Task AddClaimAsync(TRole role, Claim claim, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task AddClaimAsync(TRole role, Claim claim,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             ThrowIfDisposed();
             if (role == null)
             {
                 throw new ArgumentNullException(nameof(role));
             }
+
             if (claim == null)
             {
                 throw new ArgumentNullException(nameof(claim));
             }
+
             if (role.AddClaim(claim))
             {
-                MongoIdentityRepository.UpdateOne<TRole, TKey, List<MongoClaim>>(role, e => e.Claims, role.Claims);
+                await MongoIdentityRepository.UpdateOneAsync<TRole, TKey, List<MongoClaim>>(role, e => e.Claims,
+                    role.Claims);
             }
-            return Task.FromResult(false);
         }
 
         /// <summary>
@@ -436,23 +464,26 @@ namespace AspNetCore.Identity.MongoDbCore
         /// <param name="claim">The claim to remove from the role.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-        public async virtual Task RemoveClaimAsync(TRole role, Claim claim, CancellationToken cancellationToken = default(CancellationToken))
+        public virtual async Task RemoveClaimAsync(TRole role, Claim claim,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             ThrowIfDisposed();
             if (role == null)
             {
                 throw new ArgumentNullException(nameof(role));
             }
+
             if (claim == null)
             {
                 throw new ArgumentNullException(nameof(claim));
             }
+
             if (role.RemoveClaim(claim))
             {
-                await MongoIdentityRepository.UpdateOneAsync<TRole, TKey, List<MongoClaim>>(role, e => e.Claims, role.Claims);
+                await MongoIdentityRepository.UpdateOneAsync<TRole, TKey, List<MongoClaim>>(role, e => e.Claims,
+                    role.Claims);
             }
         }
-
 
 
         /// <summary>
